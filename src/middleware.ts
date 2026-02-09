@@ -8,27 +8,16 @@ const matchers = Object.keys(routeAccessMap).map((route) => ({
 }));
 
 export default clerkMiddleware(async (auth, req) => {
-  // Skip middleware for auth routes and root to allow redirects to work
+  // Skip middleware for auth routes and root
   if (req.nextUrl.pathname === "/" || req.nextUrl.pathname.startsWith("/sign-in") || req.nextUrl.pathname.startsWith("/sign-up")) {
     return;
   }
 
-  // if (isProtectedRoute(req)) auth().protect()
+  const { userId } = await auth();
 
-  const { userId, sessionClaims } = await auth();
-
-  const role = (sessionClaims?.publicMetadata as { role?: string })?.role;
-
-  for (const { matcher, allowedRoles } of matchers) {
-    if (!matcher(req)) continue;
-
-    if (!userId) {
-      return NextResponse.redirect(new URL("/sign-in", req.url));
-    }
-
-    if (!role || !allowedRoles.includes(role)) {
-      return NextResponse.redirect(new URL(role ? `/${role}` : "/sign-in", req.url));
-    }
+  // Just check if user is authenticated, role checks happen in pages
+  if (!userId) {
+    return NextResponse.redirect(new URL("/sign-in", req.url));
   }
 });
 

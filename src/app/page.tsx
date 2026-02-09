@@ -12,9 +12,5 @@ export default async function Home() {
   const user = await client.users.getUser(userId);
   const role = (user?.publicMetadata as { role?: string } | undefined)?.role;
   
-  console.log("[DEBUG] userId:", userId);
-  console.log("[DEBUG] publicMetadata:", JSON.stringify(user?.publicMetadata));
-  console.log("[DEBUG] extracted role:", role);
-  
   redirect(role ? `/${role}` : "/admin");
 }
