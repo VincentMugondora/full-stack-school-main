@@ -19,7 +19,7 @@ export default function Page() {
 
   return (
     <div className="h-screen flex items-center justify-center bg-lamaSkyLight">
-      <SignIn forceRedirectUrl="/" fallbackRedirectUrl="/" />
+      <SignIn routing="hash" forceRedirectUrl="/" fallbackRedirectUrl="/" />
     </div>
   );
 }
