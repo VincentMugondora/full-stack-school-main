@@ -17,7 +17,7 @@ export default clerkMiddleware(async (auth, req) => {
 
   const { userId, sessionClaims } = await auth();
 
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const role = (sessionClaims?.publicMetadata as { role?: string })?.role;
 
   for (const { matcher, allowedRoles } of matchers) {
     if (!matcher(req)) continue;
