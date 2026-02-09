@@ -8,6 +8,11 @@ const matchers = Object.keys(routeAccessMap).map((route) => ({
 }));
 
 export default clerkMiddleware((auth, req) => {
+  // Skip middleware for auth routes to allow Clerk components to render
+  if (req.nextUrl.pathname.startsWith("/sign-in") || req.nextUrl.pathname.startsWith("/sign-up")) {
+    return;
+  }
+
   // if (isProtectedRoute(req)) auth().protect()
 
   const { userId, sessionClaims } = auth();
