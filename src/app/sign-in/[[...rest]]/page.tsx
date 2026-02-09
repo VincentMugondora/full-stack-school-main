@@ -19,7 +19,7 @@ export default function Page() {
 
   return (
     <div className="h-screen flex items-center justify-center bg-lamaSkyLight">
-      <SignIn fallbackRedirectUrl="/admin" />
+      <SignIn forceRedirectUrl="/" fallbackRedirectUrl="/" />
     </div>
   );
 }
