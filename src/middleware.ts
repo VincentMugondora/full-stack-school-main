@@ -7,7 +7,7 @@ const matchers = Object.keys(routeAccessMap).map((route) => ({
   allowedRoles: routeAccessMap[route],
 }));
 
-export default clerkMiddleware((auth, req) => {
+export default clerkMiddleware(async (auth, req) => {
   // Skip middleware for auth routes to allow Clerk components to render
   if (req.nextUrl.pathname.startsWith("/sign-in") || req.nextUrl.pathname.startsWith("/sign-up")) {
     return;
@@ -15,7 +15,7 @@ export default clerkMiddleware((auth, req) => {
 
   // if (isProtectedRoute(req)) auth().protect()
 
-  const { userId, sessionClaims } = auth();
+  const { userId, sessionClaims } = await auth();
 
   const role = (sessionClaims?.metadata as { role?: string })?.role;
 
