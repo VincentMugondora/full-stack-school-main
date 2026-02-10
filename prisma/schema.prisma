@@ -7,6 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id        String   @id
+  clerkId   String   @unique
+  username  String   @unique
+  email     String?  @unique
+  role      UserRole
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations to role-specific tables (optional, based on role)
+  adminId   String? @unique
+  teacherId String? @unique
+  studentId String? @unique
+  parentId  String? @unique
+}
+
 model Admin {
   id       String @id
   username String @unique
@@ -190,4 +206,11 @@ enum Day {
   WEDNESDAY
   THURSDAY
   FRIDAY
+}
+
+enum UserRole {
+  admin
+  teacher
+  student
+  parent
 }

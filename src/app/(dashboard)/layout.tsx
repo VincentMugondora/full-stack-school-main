@@ -2,12 +2,35 @@ import Menu from "@/components/Menu";
 import Navbar from "@/components/Navbar";
 import Image from "next/image";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
+import { getUserWithRole, upsertUser } from "@/lib/auth";
+import { routeAccessMap } from "@/lib/settings";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { userId } = await auth();
+
+  if (!userId) {
+    redirect("/sign-in");
+  }
+
+  // Ensure user exists in DB
+  await upsertUser(userId);
+
+  // Get role from DB (source of truth)
+  const user = await getUserWithRole(userId);
+  
+  if (!user) {
+    redirect("/sign-in");
+  }
+
+  // Check if user has access to current route
+  const pathname = "/"; // We can't get pathname in layout easily, pages handle this individually
+  
   return (
     <div className="h-screen flex">
       {/* LEFT */}

@@ -4,12 +4,27 @@ import CountChartContainer from "@/components/CountChartContainer";
 import EventCalendarContainer from "@/components/EventCalendarContainer";
 import FinanceChart from "@/components/FinanceChart";
 import UserCard from "@/components/UserCard";
+import { auth } from "@clerk/nextjs/server";
+import { getUserWithRole } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-const AdminPage = ({
+const AdminPage = async ({
   searchParams,
 }: {
   searchParams: { [keys: string]: string | undefined };
 }) => {
+  const { userId } = await auth();
+
+  if (!userId) {
+    redirect("/sign-in");
+  }
+
+  const user = await getUserWithRole(userId);
+
+  if (!user || user.role !== "admin") {
+    redirect(`/${user?.role || "sign-in"}`);
+  }
+
   return (
     <div className="p-4 flex gap-4 flex-col md:flex-row">
       {/* LEFT */}
