@@ -66,8 +66,8 @@ export interface LessonItem {
 export interface ResultItem {
   id: number;
   score: number;
-  examTitle?: string;
-  assignmentTitle?: string;
+  examTitle?: string | null;
+  assignmentTitle?: string | null;
   subject: string;
 }
 
@@ -292,8 +292,8 @@ export async function getStudentResults(clerkId: string): Promise<ResultItem[]> 
     return [];
   }
 
-  // First get all results for the student with basic info
-  const results = await prisma.result.findMany({
+  // First get exam results
+  const examResults = await prisma.examResult.findMany({
     where: { studentId: student.id },
     include: {
       exam: {
@@ -306,7 +306,16 @@ export async function getStudentResults(clerkId: string): Promise<ResultItem[]> 
             }
           }
         }
-      },
+      }
+    },
+    orderBy: { id: "desc" },
+    take: 5, // Take only 5 exam results to stay within the limit of 10 total
+  });
+
+  // Then get assignment results
+  const assignmentResults = await prisma.assignmentResult.findMany({
+    where: { studentId: student.id },
+    include: {
       assignment: {
         include: {
           lesson: {
@@ -320,25 +329,32 @@ export async function getStudentResults(clerkId: string): Promise<ResultItem[]> 
       }
     },
     orderBy: { id: "desc" },
-    take: 10,
+    take: 5, // Take only 5 assignment results to stay within the limit of 10 total
   });
 
-  // Map the results to the expected format
-  return results.map((r) => {
-    const examTitle = r.exam ? r.exam.title : null;
-    const assignmentTitle = r.assignment ? r.assignment.title : null;
-    const subjectName = r.exam?.lesson?.subject?.name || 
-                       r.assignment?.lesson?.subject?.name || 
-                       "Unknown";
-
-    return {
+  // Combine and sort all results
+  const allResults = [
+    ...examResults.map(r => ({
       id: r.id,
       score: r.score,
-      examTitle,
-      assignmentTitle,
-      subject: subjectName,
-    };
-  });
+      examTitle: r.exam?.title || null,
+      assignmentTitle: null,
+      subject: r.exam?.lesson?.subject?.name || "Unknown",
+      date: r.exam?.date || new Date(0)
+    })),
+    ...assignmentResults.map(r => ({
+      id: r.id,
+      score: r.score,
+      examTitle: null,
+      assignmentTitle: r.assignment?.title || null,
+      subject: r.assignment?.lesson?.subject?.name || "Unknown",
+      date: r.assignment?.dueDate || new Date(0)
+    }))
+  ].sort((a, b) => b.date.getTime() - a.date.getTime())
+   .slice(0, 10); // Take top 10 most recent
+
+  // Remove the date field before returning
+  return allResults.map(({ date, ...rest }) => rest);
 }
 
 export async function getStudentAttendanceStats(clerkId: string) {
