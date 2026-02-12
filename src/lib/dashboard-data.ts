@@ -218,14 +218,16 @@ export async function getTeacherClasses(teacherId: string) {
 }
 
 // Student Dashboard Data
-export async function getStudentSchedule(studentId: string): Promise<LessonItem[]> {
-  const student = await prisma.student.findUnique({
-    where: { id: studentId },
-    select: { classId: true },
+export async function getStudentSchedule(clerkId: string): Promise<LessonItem[]> {
+  // First find the student by clerkId
+  const student = await prisma.student.findFirst({
+    where: { clerkId },
+    include: { class: { include: { lessons: true } } },
   });
 
-  if (!student || !student.classId) {
-    return []; // Return empty array if student not found or not assigned to a class
+  if (!student || !student.class) {
+    console.error(`Student or class not found for clerkId: ${clerkId}`);
+    return [];
   }
 
   const lessons = await prisma.lesson.findMany({
@@ -250,12 +252,34 @@ export async function getStudentSchedule(studentId: string): Promise<LessonItem[
   }));
 }
 
-export async function getStudentResults(studentId: string): Promise<ResultItem[]> {
+export async function getStudentResults(clerkId: string): Promise<ResultItem[]> {
+  // First find the user by clerkId
+  const user = await prisma.user.findUnique({
+    where: { clerkId },
+    select: { studentId: true }
+  });
+
+  if (!user?.studentId) {
+    console.error(`Student not found for clerkId: ${clerkId}`);
+    return [];
+  }
+
+  // Then find the student by userId
+  const student = await prisma.student.findUnique({
+    where: { id: user.studentId },
+    select: { id: true }
+  });
+
+  if (!student) {
+    console.error(`Student record not found for clerkId: ${clerkId}`);
+    return [];
+  }
+
   const results = await prisma.result.findMany({
-    where: { studentId },
+    where: { studentId: student.id },
     include: {
-      exam: { include: { lesson: { include: { subject: { select: { name: true } } } } } },
-      assignment: { include: { lesson: { include: { subject: { select: { name: true } } } } } },
+      exam: { include: { lesson: { include: { subject: { select: { name: true } } } } },
+      assignment: { include: { lesson: { include: { subject: { select: { name: true } } } } },
     },
     orderBy: { id: "desc" },
     take: 10,
@@ -270,16 +294,33 @@ export async function getStudentResults(studentId: string): Promise<ResultItem[]
   }));
 }
 
-export async function getStudentAttendanceStats(studentId: string) {
+export async function getStudentAttendanceStats(clerkId: string) {
   try {
-    // First verify student exists
+    // First find the user by clerkId
+    const user = await prisma.user.findUnique({
+      where: { clerkId },
+      select: { studentId: true }
+    });
+
+    if (!user?.studentId) {
+      console.error(`Student not found for clerkId: ${clerkId}`);
+      return {
+        total: 0,
+        present: 0,
+        absent: 0,
+        percentage: 0,
+        message: 'Student record not found'
+      };
+    }
+
+    // Then find the student by userId
     const student = await prisma.student.findUnique({
-      where: { id: studentId },
+      where: { id: user.studentId },
       select: { id: true }
     });
 
     if (!student) {
-      console.error(`Student not found with id: ${studentId}`);
+      console.error(`Student not found with clerkId: ${clerkId}`);
       return {
         total: 0,
         present: 0,
@@ -290,8 +331,8 @@ export async function getStudentAttendanceStats(studentId: string) {
     }
 
     const [total, present] = await Promise.all([
-      prisma.attendance.count({ where: { studentId } }),
-      prisma.attendance.count({ where: { studentId, present: true } })
+      prisma.attendance.count({ where: { studentId: student.id } }),
+      prisma.attendance.count({ where: { studentId: student.id, present: true } })
     ]);
 
     return {
