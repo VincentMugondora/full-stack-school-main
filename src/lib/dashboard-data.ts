@@ -60,6 +60,7 @@ export interface LessonItem {
   endTime: Date;
   subject: string;
   class: string;
+  teacherName?: string;
 }
 
 export interface ResultItem {
@@ -223,7 +224,9 @@ export async function getStudentSchedule(studentId: string): Promise<LessonItem[
     select: { classId: true },
   });
 
-  if (!student) throw new Error("Student not found");
+  if (!student || !student.classId) {
+    return []; // Return empty array if student not found or not assigned to a class
+  }
 
   const lessons = await prisma.lesson.findMany({
     where: { classId: student.classId },
@@ -243,7 +246,7 @@ export async function getStudentSchedule(studentId: string): Promise<LessonItem[
     endTime: l.endTime,
     subject: l.subject.name,
     class: l.class.name,
-    teacherName: `${l.teacher.name} ${l.teacher.surname}`,
+    teacherName: l.teacher ? `${l.teacher.name} ${l.teacher.surname}` : undefined,
   }));
 }
 
