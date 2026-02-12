@@ -219,10 +219,27 @@ export async function getTeacherClasses(teacherId: string) {
 
 // Student Dashboard Data
 export async function getStudentSchedule(clerkId: string): Promise<LessonItem[]> {
-  // First find the student by clerkId
-  const student = await prisma.student.findFirst({
+  // First find the user by clerkId
+  const user = await prisma.user.findUnique({
     where: { clerkId },
-    include: { class: { include: { lessons: true } } },
+    select: { studentId: true }
+  });
+
+  if (!user?.studentId) {
+    console.error(`Student not found for clerkId: ${clerkId}`);
+    return [];
+  }
+
+  // Then find the student with class information
+  const student = await prisma.student.findUnique({
+    where: { id: user.studentId },
+    include: { 
+      class: { 
+        include: { 
+          lessons: true 
+        } 
+      } 
+    },
   });
 
   if (!student || !student.class) {
@@ -275,23 +292,53 @@ export async function getStudentResults(clerkId: string): Promise<ResultItem[]> 
     return [];
   }
 
+  // First get all results for the student with basic info
   const results = await prisma.result.findMany({
     where: { studentId: student.id },
     include: {
-      exam: { include: { lesson: { include: { subject: { select: { name: true } } } } },
-      assignment: { include: { lesson: { include: { subject: { select: { name: true } } } } },
+      exam: {
+        include: {
+          lesson: {
+            include: {
+              subject: {
+                select: { name: true }
+              }
+            }
+          }
+        }
+      },
+      assignment: {
+        include: {
+          lesson: {
+            include: {
+              subject: {
+                select: { name: true }
+              }
+            }
+          }
+        }
+      }
     },
     orderBy: { id: "desc" },
     take: 10,
   });
 
-  return results.map((r) => ({
-    id: r.id,
-    score: r.score,
-    examTitle: r.exam?.title,
-    assignmentTitle: r.assignment?.title,
-    subject: r.exam?.lesson?.subject?.name || r.assignment?.lesson?.subject?.name || "Unknown",
-  }));
+  // Map the results to the expected format
+  return results.map((r) => {
+    const examTitle = r.exam ? r.exam.title : null;
+    const assignmentTitle = r.assignment ? r.assignment.title : null;
+    const subjectName = r.exam?.lesson?.subject?.name || 
+                       r.assignment?.lesson?.subject?.name || 
+                       "Unknown";
+
+    return {
+      id: r.id,
+      score: r.score,
+      examTitle,
+      assignmentTitle,
+      subject: subjectName,
+    };
+  });
 }
 
 export async function getStudentAttendanceStats(clerkId: string) {
