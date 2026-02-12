@@ -233,17 +233,46 @@ model AcademicYear {
   @@map("academic_years")
 }
 
-model Term {
-  id            String       @id @default(cuid())
-  name          String
-  startDate     DateTime
-  endDate       DateTime
-  isLocked      Boolean      @default(false)
-  academicYearId String
-  academicYear  AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+model Subject {
+  id         String   @id @default(cuid())
+  schoolId   String
+  name       String
+  teacherId  String?
+  teacher    Teacher? @relation(fields: [teacherId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  @@index([academicYearId])
-  @@map("terms")
+  @@index([schoolId])
+  @@index([teacherId])
+  @@map("subjects")
+}
+
+model Teacher {
+  id        String    @id @default(cuid())
+  userId    String    @unique
+  schoolId  String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  classes   Class[]
+  subjects  Subject[]
+
+  @@index([schoolId])
+  @@map("teachers")
+}
+
+model Class {
+  id         String   @id @default(cuid())
+  schoolId   String
+  name       String
+  grade      String
+  teacherId  String?
+  teacher    Teacher? @relation(fields: [teacherId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([teacherId])
+  @@map("classes")
 }
