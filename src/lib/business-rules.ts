@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "./prisma";
+import prisma from "./prisma";
 
 /**
  * Business Rules Module
@@ -17,12 +17,15 @@ export class BusinessRuleError extends Error {
   }
 }
 
+// Type for Prisma transaction client
+type PrismaTransaction = typeof prisma;
+
 /**
  * Validates that only one AcademicYear is marked as current per school.
  * If setting an academic year as current, automatically unset any existing current year.
  */
 export async function validateAndEnforceSingleCurrentAcademicYear(
-  tx: typeof prisma,
+  tx: PrismaTransaction,
   schoolId: string,
   academicYearId: string,
   isCurrent: boolean
@@ -45,7 +48,7 @@ export async function validateAndEnforceSingleCurrentAcademicYear(
  * Throws error if trying to modify a locked academic year.
  */
 export async function assertAcademicYearNotLocked(
-  tx: typeof prisma,
+  tx: PrismaTransaction,
   academicYearId: string
 ): Promise<void> {
   const academicYear = await tx.academicYear.findUnique({
@@ -69,7 +72,7 @@ export async function assertAcademicYearNotLocked(
  * Throws error if trying to modify a locked term.
  */
 export async function assertTermNotLocked(
-  tx: typeof prisma,
+  tx: PrismaTransaction,
   termId: string
 ): Promise<void> {
   const term = await tx.term.findUnique({
@@ -126,7 +129,7 @@ export function validateTermDatesWithinAcademicYear(
  * Comprehensive validation for creating/updating an academic year.
  */
 export async function validateAcademicYear(
-  tx: typeof prisma,
+  tx: PrismaTransaction,
   data: {
     schoolId: string;
     id?: string;
@@ -181,7 +184,7 @@ export async function validateAcademicYear(
  * Comprehensive validation for creating/updating a term.
  */
 export async function validateTerm(
-  tx: typeof prisma,
+  tx: PrismaTransaction,
   data: {
     id?: string;
     name: string;
