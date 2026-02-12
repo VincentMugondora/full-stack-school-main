@@ -271,15 +271,46 @@ export async function getStudentResults(studentId: string): Promise<ResultItem[]
 }
 
 export async function getStudentAttendanceStats(studentId: string) {
-  const total = await prisma.attendance.count({ where: { studentId } });
-  const present = await prisma.attendance.count({ where: { studentId, present: true } });
+  try {
+    // First verify student exists
+    const student = await prisma.student.findUnique({
+      where: { id: studentId },
+      select: { id: true }
+    });
 
-  return {
-    total,
-    present,
-    absent: total - present,
-    percentage: total > 0 ? Math.round((present / total) * 100) : 0,
-  };
+    if (!student) {
+      console.error(`Student not found with id: ${studentId}`);
+      return {
+        total: 0,
+        present: 0,
+        absent: 0,
+        percentage: 0,
+        message: 'Student record not found'
+      };
+    }
+
+    const [total, present] = await Promise.all([
+      prisma.attendance.count({ where: { studentId } }),
+      prisma.attendance.count({ where: { studentId, present: true } })
+    ]);
+
+    return {
+      total,
+      present,
+      absent: total - present,
+      percentage: total > 0 ? Math.round((present / total) * 100) : 0,
+      lastUpdated: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('Error fetching attendance stats:', error);
+    return {
+      total: 0,
+      present: 0,
+      absent: 0,
+      percentage: 0,
+      error: 'Failed to load attendance data'
+    };
+  }
 }
 
 // Parent Dashboard Data
