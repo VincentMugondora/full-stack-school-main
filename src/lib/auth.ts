@@ -39,18 +39,34 @@ export async function upsertUser(clerkUserId: string) {
   const username = clerkUser.username || clerkUser.emailAddresses[0]?.emailAddress.split("@")[0] || `user_${Date.now()}`;
   const email = clerkUser.emailAddresses[0]?.emailAddress;
 
-  // Create user in database
-  const user = await prisma.user.create({
-    data: {
-      id: clerkUserId, // Use Clerk ID as primary key for simplicity
-      clerkId: clerkUserId,
-      username,
-      email,
-      role,
-    },
-  });
+  try {
+    // Create user in database
+    const user = await prisma.user.create({
+      data: {
+        id: clerkUserId,
+        clerkId: clerkUserId,
+        username,
+        email,
+        role,
+      },
+    });
 
-  return { success: true, user, isNew: true };
+    return { success: true, user, isNew: true };
+  } catch (error: any) {
+    // If username column doesn't exist, try without it
+    if (error.message?.includes("username")) {
+      const user = await prisma.user.create({
+        data: {
+          id: clerkUserId,
+          clerkId: clerkUserId,
+          email,
+          role,
+        },
+      });
+      return { success: true, user, isNew: true };
+    }
+    throw error;
+  }
 }
 
 /**
