@@ -2,6 +2,8 @@
 
 import prisma from "@/lib/prisma";
 import { UserRole } from "@prisma/client";
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 
 /**
  * Security utilities for data isolation and access control
@@ -12,6 +14,161 @@ export interface SecurityContext {
   userId: string;
   role: UserRole;
 }
+
+export type AllowedRoles = UserRole | UserRole[];
+
+export interface AuthUser {
+  id: string;
+  clerkId: string;
+  username: string | null;
+  email: string | null;
+  role: UserRole;
+}
+
+// ==========================================
+// ROLE-BASED ACCESS CONTROL (RBAC)
+// ==========================================
+
+/**
+ * Centralized function to enforce role-based access control
+ * @param user - The authenticated user object
+ * @param allowedRoles - Single role or array of allowed roles
+ * @returns null if authorized, or NextResponse with 403 error if unauthorized
+ */
+export function requireRole(
+  user: { role: UserRole } | null,
+  allowedRoles: AllowedRoles
+): NextResponse | null {
+  if (!user) {
+    return NextResponse.json(
+      { error: "Unauthorized - User not found" },
+      { status: 401 }
+    );
+  }
+
+  const hasRole = Array.isArray(allowedRoles)
+    ? allowedRoles.includes(user.role)
+    : user.role === allowedRoles;
+
+  if (!hasRole) {
+    return NextResponse.json(
+      { error: "Forbidden - Insufficient permissions" },
+      { status: 403 }
+    );
+  }
+
+  return null;
+}
+
+/**
+ * Helper function to check if user has required role (returns boolean)
+ */
+export function hasRole(
+  user: { role: UserRole } | null,
+  allowedRoles: AllowedRoles
+): boolean {
+  if (!user) return false;
+
+  return Array.isArray(allowedRoles)
+    ? allowedRoles.includes(user.role)
+    : user.role === allowedRoles;
+}
+
+/**
+ * Higher-order function to protect API routes with role-based authentication
+ * @param handler - The route handler function
+ * @param allowedRoles - Single role or array of allowed roles
+ */
+export function withRoleAuth(
+  handler: (req: Request, user: AuthUser) => Promise<NextResponse>,
+  allowedRoles: AllowedRoles
+) {
+  return async (req: Request): Promise<NextResponse> => {
+    try {
+      // Get authenticated user from Clerk
+      const { userId: clerkId } = await auth();
+
+      if (!clerkId) {
+        return NextResponse.json(
+          { error: "Unauthorized - Not authenticated" },
+          { status: 401 }
+        );
+      }
+
+      // Get user from database with role
+      const user = await prisma.user.findUnique({
+        where: { clerkId },
+        select: {
+          id: true,
+          clerkId: true,
+          username: true,
+          email: true,
+          role: true,
+        },
+      });
+
+      if (!user) {
+        return NextResponse.json(
+          { error: "Unauthorized - User not found in database" },
+          { status: 401 }
+        );
+      }
+
+      // Check role authorization
+      const authError = requireRole(user, allowedRoles);
+      if (authError) return authError;
+
+      // Call the protected handler
+      return await handler(req, user as AuthUser);
+    } catch (error) {
+      console.error("Error in withRoleAuth:", error);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 }
+      );
+    }
+  };
+}
+
+/**
+ * Middleware for checking authentication without role restrictions
+ */
+export function withAuth(
+  handler: (req: Request, user: AuthUser) => Promise<NextResponse>
+) {
+  return withRoleAuth(handler, ["admin", "teacher", "student", "parent"] as UserRole[]);
+}
+
+/**
+ * Get current authenticated user with role
+ */
+export async function getCurrentUser(): Promise<AuthUser | null> {
+  try {
+    const { userId: clerkId } = await auth();
+
+    if (!clerkId) return null;
+
+    const user = await prisma.user.findUnique({
+      where: { clerkId },
+      select: {
+        id: true,
+        clerkId: true,
+        username: true,
+        email: true,
+        role: true,
+      },
+    });
+
+    return user as AuthUser | null;
+  } catch (error) {
+    console.error("Error getting current user:", error);
+    return null;
+  }
+}
+
+// ==========================================
+// DATA-LEVEL AUTHORIZATION (OWNERSHIP CHECKS)
+// ==========================================
 
 // Verify teacher owns a specific lesson
 export async function verifyTeacherLessonAccess(teacherId: string, lessonId: number): Promise<boolean> {
