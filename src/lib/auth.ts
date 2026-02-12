@@ -9,9 +9,10 @@ import { UserRole } from "@prisma/client";
  * Uses Clerk as identity source, creates DB record with role.
  */
 export async function upsertUser(clerkUserId: string) {
-  // First check if user already exists
+  // First check if user already exists - select only fields that exist in DB
   const existingUser = await prisma.user.findUnique({
     where: { clerkId: clerkUserId },
+    select: { id: true, clerkId: true, email: true, role: true, createdAt: true, updatedAt: true }
   });
 
   if (existingUser) {
@@ -35,37 +36,26 @@ export async function upsertUser(clerkUserId: string) {
     ? (roleFromMetadata as UserRole) 
     : "student";
 
-  // Get username and email
-  const username = clerkUser.username || clerkUser.emailAddresses[0]?.emailAddress.split("@")[0] || `user_${Date.now()}`;
+  // Get email
   const email = clerkUser.emailAddresses[0]?.emailAddress;
 
   try {
-    // Create user in database
+    // Create user in database without username (field doesn't exist yet)
+    // Using 'as any' to bypass Prisma type checking until client is regenerated
     const user = await prisma.user.create({
       data: {
         id: clerkUserId,
         clerkId: clerkUserId,
-        username,
         email,
         role,
-      },
+      } as any,
+      select: { id: true, clerkId: true, email: true, role: true, createdAt: true, updatedAt: true }
     });
 
     return { success: true, user, isNew: true };
   } catch (error: any) {
-    // If username column doesn't exist, try without it
-    if (error.message?.includes("username")) {
-      const user = await prisma.user.create({
-        data: {
-          id: clerkUserId,
-          clerkId: clerkUserId,
-          email,
-          role,
-        },
-      });
-      return { success: true, user, isNew: true };
-    }
-    throw error;
+    console.error("Error creating user:", error);
+    return { success: false, error: "Failed to create user in database" };
   }
 }
 
@@ -73,9 +63,10 @@ export async function upsertUser(clerkUserId: string) {
  * Get user with role from database
  */
 export async function getUserWithRole(clerkUserId: string) {
+  // Select only fields that exist in database (username column doesn't exist yet)
   const user = await prisma.user.findUnique({
     where: { clerkId: clerkUserId },
-    select: { id: true, clerkId: true, username: true, email: true, role: true },
+    select: { id: true, clerkId: true, email: true, role: true }
   });
 
   return user;
