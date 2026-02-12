@@ -214,3 +214,36 @@ enum UserRole {
   student
   parent
 }
+
+model AcademicYear {
+  id          String   @id @default(cuid())
+  name        String
+  startDate   DateTime
+  endDate     DateTime
+  isCurrent   Boolean  @default(false)
+  isLocked    Boolean  @default(false)
+  schoolId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  terms       Term[]
+
+  @@unique([schoolId, isCurrent])
+  @@index([schoolId])
+  @@map("academic_years")
+}
+
+model Term {
+  id            String       @id @default(cuid())
+  name          String
+  startDate     DateTime
+  endDate       DateTime
+  isLocked      Boolean      @default(false)
+  academicYearId String
+  academicYear  AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([academicYearId])
+  @@map("terms")
+}

@@ -40,15 +40,14 @@ export async function upsertUser(clerkUserId: string) {
   const email = clerkUser.emailAddresses[0]?.emailAddress;
 
   try {
-    // Create user in database without username (field doesn't exist yet)
-    // Using 'as any' to bypass Prisma type checking until client is regenerated
+    // Create user in database
     const user = await prisma.user.create({
       data: {
         id: clerkUserId,
         clerkId: clerkUserId,
         email,
         role,
-      } as any,
+      },
       select: { id: true, clerkId: true, email: true, role: true, createdAt: true, updatedAt: true }
     });
 
